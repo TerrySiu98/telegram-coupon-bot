@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  telegram-coupon-bot:
+    image: terrysiu/telegram-coupon-bot:latest
+    container_name: telegram-coupon-bot
+    ports:
+      - "5656:5656"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped

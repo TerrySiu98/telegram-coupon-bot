@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统配置 - 优惠码系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .search-form { display: flex; align-items: center; margin-right: 10px; }
+        .search-input { height: 31px; width: 200px; font-size: 0.875rem; }
+        .btn-group .btn { height: 31px; font-size: 0.875rem; display: flex; align-items: center; }
+        .btn-clear { height: 31px; font-size: 0.875rem; padding: 0 10px; display: flex; align-items: center; }
+        .footer { margin-top: 20px; font-size: 0.9rem; color: #888; }
+        .footer a { text-decoration: none; color: #555; }
+        .footer a:hover { text-decoration: underline; color: #000; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">优惠码管理系统</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item"><a class="nav-link" href="/">仪表板</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/coupons">优惠码</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/users">用户记录</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="/configs">系统配置</a></li>
+                </ul>
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="/logout">退出 ({{ .username }})</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <h1 class="mb-4">系统配置</h1>
+        
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div class="flex-grow-1 me-3">
+                {{ if .message }}
+                <div class="alert alert-info mb-0">{{ .message }}</div>
+                {{ else }}
+                <div class="alert alert-info mb-0">提示：修改任何配置后，请点击"重载系统配置"按钮使配置生效。</div>
+                {{ end }}
+            </div>
+            <div><button type="button" class="btn btn-warning" onclick="reloadSystem()">重载系统配置</button></div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header"><h5 class="mb-0">Telegram 和群组配置</h5></div>
+            <div class="card-body">
+                <form method="POST" action="/configs/update-telegram-group">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="telegram_token" class="form-label">Telegram 机器人令牌</label>
+                            <input type="text" class="form-control" id="telegram_token" name="telegram_token" value="{{ .telegramToken }}" placeholder="请输入 Telegram 机器人令牌">
+                            <div class="form-text">从 @BotFather 获取您的机器人令牌</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="official_group_id" class="form-label">官方群组 ID</label>
+                            <input type="text" class="form-control" id="official_group_id" name="official_group_id" value="{{ .officialGroupID }}" placeholder="请输入官方群组 ID">
+                            <div class="form-text">确保机器人已加入群组并具有管理员权限</div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <button type="button" class="btn btn-info" onclick="testBotConnection()">测试连接</button>
+                        <button type="submit" class="btn btn-primary">保存配置</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header"><h5 class="mb-0">优惠码设置</h5></div>
+            <div class="card-body">
+                {{ $daysConfigID := "0" }}
+                {{ range .otherConfigs }}
+                    {{ if eq .Key "days_between_claims" }}
+                        {{ $daysConfigID = printf "%d" .ID }}
+                    {{ end }}
+                {{ end }}
+                <form method="POST" action="/configs/update/{{ $daysConfigID }}">
+                    <div class="mb-3">
+                        <label for="days_between_claims" class="form-label">优惠码领取间隔（天）</label>
+                        <input type="number" class="form-control" id="days_between_claims" name="value" value="{{ .daysInterval }}" min="1" required>
+                        <div class="form-text">用户必须等待指定的天数后才能再次领取优惠码</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">保存设置</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header"><h5 class="mb-0">网站数据库配置</h5></div>
+            <div class="card-body">
+                <form method="POST" action="/configs/update-db">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="website_db_host" class="form-label">数据库主机</label>
+                            <input type="text" class="form-control" id="website_db_host" name="website_db_host" value="{{ .dbHost }}" placeholder="例如: 127.0.0.1">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="website_db_port" class="form-label">数据库端口</label>
+                            <input type="text" class="form-control" id="website_db_port" name="website_db_port" value="{{ .dbPort }}" placeholder="默认: 3306">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="website_db_name" class="form-label">数据库名称</label>
+                            <input type="text" class="form-control" id="website_db_name" name="website_db_name" value="{{ .dbName }}" placeholder="请输入数据库名称">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="website_db_user" class="form-label">数据库用户名</label>
+                            <input type="text" class="form-control" id="website_db_user" name="website_db_user" value="{{ .dbUser }}" placeholder="请输入数据库用户名">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="website_db_pass" class="form-label">数据库密码</label>
+                        <input type="password" class="form-control" id="website_db_pass" name="website_db_pass" value="{{ .dbPass }}" placeholder="请输入数据库密码">
+                    </div>
+                    <div class="mb-3">
+                        <button type="button" class="btn btn-info" onclick="testDBConnection()">测试连接</button>
+                        <button type="submit" class="btn btn-primary">保存配置</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header"><h5 class="mb-0">消息模板</h5></div>
+            <div class="card-body">
+                <form method="POST" action="/configs/update-messages">
+                    <div class="row">
+                    {{ range .messageTemplates }}
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ .Key }}" class="form-label">{{ .Description }}</label>
+                            <textarea class="form-control" id="{{ .Key }}" name="{{ .Key }}" rows="2">{{ index $.messageTemplatesMap .Key }}</textarea>
+                        </div>
+                    {{ end }}
+                    </div>
+                    <button type="submit" class="btn btn-primary">保存模板</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header"><h5 class="mb-0">关键词触发器</h5></div>
+            <div class="card-body">
+                <form method="POST" action="/configs/add-keyword">
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <label for="keyword" class="form-label">关键词</label>
+                            <input type="text" class="form-control" id="keyword" name="keyword" required>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label for="response" class="form-label">回复内容</label>
+                            <input type="text" class="form-control" id="response" name="response" required>
+                        </div>
+                        <div class="col-md-2 mb-3">
+                            <label for="auto_delete" class="form-label">自动删除</label>
+                            <select class="form-select" id="auto_delete" name="auto_delete">
+                                <option value="0">否</option>
+                                <option value="1">是</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2 mb-3">
+                            <label for="delete_delay" class="form-label">删除延迟(秒)</label>
+                            <input type="number" class="form-control" id="delete_delay" name="delete_delay" value="60" min="5" max="300">
+                        </div>
+                        <div class="col-md-2 mb-3 align-self-end">
+                            <button type="submit" class="btn btn-primary w-100">添加关键词</button>
+                        </div>
+                    </div>
+                </form>
+
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>关键词</th>
+                            <th>回复内容</th>
+                            <th>状态</th>
+                            <th>自动删除</th>
+                            <th>删除延迟</th>
+                            <th>创建时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ range .keywords }}
+                        <tr>
+                            <td>{{ .ID }}</td>
+                            <td>{{ .Keyword }}</td>
+                            <td>{{ .Response }}</td>
+                            <td>
+                                {{ if .IsActive }}<span class="badge bg-success">启用</span>{{ else }}<span class="badge bg-secondary">禁用</span>{{ end }}
+                            </td>
+                            <td>
+                                {{ if .AutoDelete }}<span class="badge bg-info">是</span>{{ else }}<span class="badge bg-secondary">否</span>{{ end }}
+                            </td>
+                            <td>{{ .DeleteDelay }}秒</td>
+                            <td>{{ formatTime .CreatedAt }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#editKeywordModal{{ .ID }}">编辑</button>
+                                <form method="POST" action="/configs/delete-keyword/{{ .ID }}" style="display: inline;">
+                                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('确定删除这个关键词触发器吗？')">删除</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {{ end }}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header"><h5 class="mb-0">修改管理员信息</h5></div>
+            <div class="card-body">
+                <form method="POST" action="/configs/update-admin">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="new_username" class="form-label">新用户名</label>
+                            <input type="text" class="form-control" id="new_username" name="new_username" value="{{ .username }}" required>
+                            <div class="form-text">请输入新的管理员用户名</div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="new_password" class="form-label">新密码（留空则不修改）</label>
+                            <input type="password" class="form-control" id="new_password" name="new_password">
+                            <div class="form-text">请输入新密码，或留空保持当前密码</div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="confirm_password" class="form-label">确认密码</label>
+                            <input type="password" class="form-control" id="confirm_password" name="confirm_password">
+                            <div class="form-text">再次输入新密码以确认</div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">修改信息</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header"><h5 class="mb-0">其他配置</h5></div>
+            <div class="card-body">
+                <form method="POST" action="/configs/add">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="key" class="form-label">配置名</label>
+                            <input type="text" class="form-control" id="key" name="key" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="value" class="form-label">值</label>
+                            <input type="text" class="form-control" id="value" name="value" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="description" class="form-label">描述</label>
+                            <input type="text" class="form-control" id="description" name="description" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">添加配置</button>
+                </form>
+
+                <table class="table table-striped mt-3">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>配置名</th>
+                            <th>值</th>
+                            <th>描述</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ range .otherConfigs }}
+                        {{ if ne .Key "days_between_claims" }}
+                        <tr>
+                            <td>{{ .ID }}</td>
+                            <td>{{ .Key }}</td>
+                            <td>
+                                <form method="POST" action="/configs/update/{{ .ID }}">
+                                    <input type="text" class="form-control" name="value" value="{{ .Value }}" required>
+                                    <button type="submit" class="btn btn-sm btn-primary mt-1">更新</button>
+                                </form>
+                            </td>
+                            <td>{{ .Description }}</td>
+                            <td>
+                                <form method="POST" action="/configs/delete/{{ .ID }}" style="display: inline;">
+                                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('确定删除这个配置吗？')">删除</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {{ end }}
+                        {{ end }}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {{ range .keywords }}
+    <div class="modal fade" id="editKeywordModal{{ .ID }}" tabindex="-1" aria-labelledby="editKeywordModalLabel{{ .ID }}" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editKeywordModalLabel{{ .ID }}">编辑关键词触发器 #{{ .ID }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST" action="/configs/update-keyword/{{ .ID }}">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="keyword{{ .ID }}" class="form-label">关键词</label>
+                            <input type="text" class="form-control" id="keyword{{ .ID }}" name="keyword" value="{{ .Keyword }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="response{{ .ID }}" class="form-label">回复内容</label>
+                            <input type="text" class="form-control" id="response{{ .ID }}" name="response" value="{{ .Response }}" required>
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="is_active{{ .ID }}" name="is_active" {{ if .IsActive }}checked{{ end }}>
+                            <label class="form-check-label" for="is_active{{ .ID }}">启用</label>
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="auto_delete{{ .ID }}" name="auto_delete" {{ if .AutoDelete }}checked{{ end }}>
+                            <label class="form-check-label" for="auto_delete{{ .ID }}">自动删除消息</label>
+                        </div>
+                        <div class="mb-3">
+                            <label for="delete_delay{{ .ID }}" class="form-label">删除延迟（秒）</label>
+                            <input type="number" class="form-control" id="delete_delay{{ .ID }}" name="delete_delay" value="{{ .DeleteDelay }}" min="5" max="300">
+                            <div class="form-text">设置消息自动删除的延迟时间，范围5-300秒</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                        <button type="submit" class="btn btn-primary">保存更改</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {{ end }}
+
+    <div class="footer text-center">
+        <script>
+            var mydate = new Date();
+            document.write("Copyright © 2023 - " + mydate.getFullYear() + ' <a href="https://t.me/NetAccelera" target="_blank">NetAccelera</a>');
+        </script>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function testBotConnection() {
+            fetch('/configs/test-bot', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => alert(data.message))
+                .catch(error => alert('测试失败: ' + error));
+        }
+
+        function testDBConnection() {
+            fetch('/configs/test-db', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => alert(data.message))
+                .catch(error => alert('测试失败: ' + error));
+        }
+
+        function reloadSystem() {
+            if (confirm('确定要重载系统配置吗？这可能会导致机器人短暂不可用。')) {
+                fetch('/configs/reload', { method: 'POST' })
+                    .then(response => response.json())
+                    .then(data => {
+                        alert(data.message);
+                        if (data.message.includes("成功")) window.location.reload();
+                    })
+                    .catch(error => alert('重载失败: ' + error));
+            }
+        }
+    </script>
+</body>
+</html>

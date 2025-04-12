@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>优惠码管理 - 优惠码系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .search-form {
+            display: flex;
+            align-items: center;
+            margin-right: 10px;
+        }
+        .search-input {
+            height: 31px;
+            width: 200px;
+            font-size: 0.875rem;
+        }
+        .btn-group .btn {
+            height: 31px;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+        }
+        .btn-clear {
+            height: 31px;
+            font-size: 0.875rem;
+            padding: 0 10px;
+            display: flex;
+            align-items: center;
+        }
+        .footer {
+            margin-top: 20px;
+            font-size: 0.9rem;
+            color: #888;
+        }
+        .footer a {
+            text-decoration: none;
+            color: #555;
+        }
+        .footer a:hover {
+            text-decoration: underline;
+            color: #000;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">优惠码管理系统</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">仪表板</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/coupons">优惠码</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/users">用户记录</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/configs">系统配置</a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/logout">退出 ({{.username}})</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    <div class="container mt-4">
+        <h1 class="mb-4">优惠码管理</h1>
+        {{if .message}}
+        <div class="alert alert-info mb-4">
+            {{.message}}
+        </div>
+        {{end}}
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">添加单个优惠码</div>
+                    <div class="card-body">
+                        <form method="POST" action="/coupons/add">
+                            <div class="mb-3">
+                                <label for="code" class="form-label">优惠码</label>
+                                <input type="text" class="form-control" id="code" name="code" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary">添加</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">批量添加优惠码</div>
+                    <div class="card-body">
+                        <form method="POST" action="/coupons/batch">
+                            <div class="mb-3">
+                                <label for="codes" class="form-label">优惠码列表（每行一个）</label>
+                                <textarea class="form-control" id="codes" name="codes" rows="5" required></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary">批量添加</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>优惠码列表 (总计: {{.total}})</span>
+                <div class="d-flex align-items-center">
+                    <form class="search-form">
+                        <input class="form-control search-input me-2" type="search" name="search" placeholder="搜索优惠码..." value="{{.search}}">
+                        <input type="hidden" name="filter" value="{{.filter}}">
+                        <button class="btn btn-sm btn-outline-primary" type="submit">搜索</button>
+                    </form>
+                    <div class="btn-group me-2">
+                        <a href="/coupons?filter=all{{if .search}}&search={{.search}}{{end}}" class="btn btn-sm {{if eq .filter "all"}}btn-primary{{else}}btn-outline-primary{{end}}">全部</a>
+                        <a href="/coupons?filter=available{{if .search}}&search={{.search}}{{end}}" class="btn btn-sm {{if eq .filter "available"}}btn-primary{{else}}btn-outline-primary{{end}}">可用</a>
+                        <a href="/coupons?filter=used{{if .search}}&search={{.search}}{{end}}" class="btn btn-sm {{if eq .filter "used"}}btn-primary{{else}}btn-outline-primary{{end}}">已用</a>
+                    </div>
+                    <form method="POST" action="/coupons/clear-used" onsubmit="return confirm('确定要删除所有已使用的优惠码吗？此操作不可恢复。');">
+                        <button type="submit" class="btn btn-sm btn-danger btn-clear">清除已使用的优惠码</button>
+                    </form>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>优惠码</th>
+                                <th>状态</th>
+                                <th>创建时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range .coupons}}
+                            <tr>
+                                <td>{{.ID}}</td>
+                                <td><code>{{.Code}}</code></td>
+                                <td>
+                                    {{if .IsUsed}}
+                                    <span class="badge bg-danger">已使用</span>
+                                    {{else}}
+                                    <span class="badge bg-success">可用</span>
+                                    {{end}}
+                                </td>
+                                <td>{{formatTime .CreatedAt}}</td>
+                                <td>
+                                    <form action="/coupons/delete/{{.ID}}" method="POST" onsubmit="return confirm('确定要删除这个优惠码吗？');" class="d-inline">
+                                        <button type="submit" class="btn btn-sm btn-danger">删除</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {{else}}
+                            <tr>
+                                <td colspan="5" class="text-center">没有找到优惠码</td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- 分页 -->
+                {{if gt .totalPages 1}}
+                <nav aria-label="Page navigation">
+                    <ul class="pagination justify-content-center">
+                        {{if gt .page 1}}
+                        <li class="page-item">
+                            <a class="page-link" href="/coupons?page={{sub .page 1}}&filter={{.filter}}{{if .search}}&search={{.search}}{{end}}">上一页</a>
+                        </li>
+                        {{else}}
+                        <li class="page-item disabled">
+                            <a class="page-link">上一页</a>
+                        </li>
+                        {{end}}
+                        
+                        {{range pageRange .page .totalPages}}
+                        <li class="page-item {{if eq . $.page}}active{{end}}">
+                            <a class="page-link" href="/coupons?page={{.}}&filter={{$.filter}}{{if $.search}}&search={{$.search}}{{end}}">{{.}}</a>
+                        </li>
+                        {{end}}
+                        
+                        {{if lt .page .totalPages}}
+                        <li class="page-item">
+                            <a class="page-link" href="/coupons?page={{add .page 1}}&filter={{.filter}}{{if .search}}&search={{.search}}{{end}}">下一页</a>
+                        </li>
+                        {{else}}
+                        <li class="page-item disabled">
+                            <a class="page-link">下一页</a>
+                        </li>
+                        {{end}}
+                    </ul>
+                </nav>
+                {{end}}
+            </div>
+        </div>
+    </div>
+    
+    <div class="footer text-center">
+        <script>
+            var mydate = new Date();
+            document.write(
+                "Copyright © 2023 - " + mydate.getFullYear() +
+                ' <a href="https://t.me/NetAccelera" target="_blank">NetAccelera</a>'
+            );
+        </script>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
